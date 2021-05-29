@@ -1,5 +1,5 @@
 from typing import Dict
-from Cryptodome.Cipher import AES 
+from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
 from base64 import b64encode, b64decode
 import json
@@ -37,7 +37,7 @@ def encipher(data: Dict) -> Dict:
     return msg
 
 
-def decipher(ciphertext: 'b64encoded bytes-like object', 
+def decipher(ciphertext: 'b64encoded bytes-like object',
              password: bytes, nonce: bytes, tag: bytes) -> Dict:
     """
     Argument:

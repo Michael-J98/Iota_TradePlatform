@@ -1,4 +1,3 @@
-from random import seed
 from iota import AsyncIota, Seed, ProposedTransaction
 from iota.types import Address
 from typing import List
@@ -123,7 +122,6 @@ class Node():
             if not response['transactions']:
                 print('Couldn\'t find data for the given address.')
             else:
-                #print('Found:')
                 # Iterate over the fetched transaction objects
                 for tx in response['transactions']:
                     # data is in the signature_message_fragment attribute
