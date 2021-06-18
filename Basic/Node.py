@@ -94,6 +94,7 @@ class Node():
             if len(self.sent_tx_hashes) > 0:
                 if self.timeout <= self.elapsed:
                     # timeout reached, terminate checking
+                    self.elapsed = 0
                     return False  # coroutine object[bool]
                 # Show some progress on the screen
                 print('.')
@@ -102,6 +103,7 @@ class Node():
                 await asyncio.sleep(self.polling_interval)
                 self.elapsed = self.elapsed + self.polling_interval
 
+        self.elapsed = 0
         # All transactions in the bundle are confirmed
         return True  # coroutine object[bool]
 
@@ -112,43 +114,57 @@ class Node():
 
         Return: unicode string(base64 encoded) | None
         """
+
         data = []
+        while True:
+            if self.timeout <= self.elapsed:
+                # timeout reached, terminate checking
+                print('Found No data or invaild address type:{}, should be iota.types.Address or str, [] will be returned'.format(type(address)))
+                self.elapsed = 0
+                return []  # coroutine object[bool]
 
-        # if Address object is provided
-        if isinstance(address, Address):
+            # if Address object is provided
+            if isinstance(address, Address):
 
-            response = await self.api.find_transaction_objects(addresses=[address])
+                response = await self.api.find_transaction_objects(addresses=[address])
 
-            if not response['transactions']:
-                print('Couldn\'t find data for the given address.')
-            else:
-                # Iterate over the fetched transaction objects
-                for tx in response['transactions']:
-                    # data is in the signature_message_fragment attribute
-                    # as trytes, we need to decode it into a unicode string
-                    found_data = tx.signature_message_fragment.decode(errors='ignore')
-                    data.append(found_data)
+                if not response['transactions']:
+                    print('Couldn\'t find data for the given address for now...')
+                else:
+                    # Iterate over the fetched transaction objects
+                    for tx in response['transactions']:
+                        # data is in the signature_message_fragment attribute
+                        # as trytes, we need to decode it into a unicode string
+                        found_data = tx.signature_message_fragment.decode(errors='ignore')
+                        data.append(found_data)
+                    print(f'find data successfully:{data}')
+                    self.elapsed = 0
+                    return data
 
-        # if bundle hash object is provided
-        if isinstance(address, str):
+            # if bundle hash object is provided
+            if isinstance(address, str):
 
-            if len(address) == 81:
+                if len(address) == 81:
 
-                # assume there is only one bundle under a tail_hash
-                response = await self.api.get_bundles([address])
-                for msg in response['bundles'][0]:
-                    data.append(msg.signature_message_fragment.decode(errors='ignore'))
+                    # assume there is only one bundle under a tail_hash
+                    response = await self.api.get_bundles([address])
+                    for msg in response['bundles'][0]:
+                        data.append(msg.signature_message_fragment.decode(errors='ignore'))
+                    if data != []:
+                        print(f'find data successfully:{data}')
+                        self.elapsed = 0
+                        return data
 
-            else:
-                print('invaild bundle hash, the length of hash \
-                    should be 81, None will be returned')
+                else:
+                    print('invaild bundle hash, the length of hash should be 81, [] will be returned')
+                    self.elapsed = 0
+                    return data
 
-        # other types are invaild
-        if data == []:
-            print('Found No data or invaild address type:{}\n,\
-                should be iota.types.Address or str, None will be returned'.format(type(address)))
+            # Put on hold for polling_interval. Non-blocking, so you can
+            # do other stuff in the meantime.
+            await asyncio.sleep(self.polling_interval)
+            self.elapsed = self.elapsed + self.polling_interval
 
-        return data  # coroutine object[list of str]
 
 
 def decorator(coroutine):
@@ -160,7 +176,8 @@ def decorator(coroutine):
 
     """
     # define event loop
-    loop = asyncio.get_event_loop()
+    loop =  asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     # transfer coroutine object to task object
     task = loop.create_task(coroutine)
     # trigger task in event loop
