@@ -15,9 +15,6 @@ Iota_TradePlatform<br>
 &emsp;|----Consumer  # 消费者客户端【继承Node，集成Public_Com，连接Iot等】<br>
 &emsp;|----Price_Strategy  # 出价策略方法【单一价格或价格区间等】<br>
 &emsp;|----Quantity_Strategy  # 购买量方法【单一量或量区间等】<br>
-|----Grid<br>
-&emsp;|----Grid  # 能源网后端【继承Node，集成Public_Com、 Activation，数据库等】<br>
-&emsp;|----Match  # 供需双方报价匹配策略<br>
 |----Iot<br>
 &emsp;|----Energy_Transfer  # 模拟能源耗散与传送【依然用IOTA模拟？】<br>
 &emsp;|----HashToAddress  # Iot设备hash值生成实时变化的物理地址【提高匿名性】<br>
