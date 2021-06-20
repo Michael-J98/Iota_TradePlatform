@@ -2,6 +2,7 @@ from iota import AsyncIota, Seed, ProposedTransaction
 from iota.types import Address
 from typing import List
 import asyncio
+import time
 
 
 class Node():
@@ -136,6 +137,7 @@ class Node():
                         # data is in the signature_message_fragment attribute
                         # as trytes, we need to decode it into a unicode string
                         found_data = tx.signature_message_fragment.decode(errors='ignore')
+                        found_value = tx.value  # 不想改后面的了，上面只是接收信息的一部分，没有value
                         data.append(found_data)
                     print(f'find data successfully:{data}')
                     self.elapsed = 0
@@ -181,4 +183,7 @@ def decorator(coroutine):
     # transfer coroutine object to task object
     task = loop.create_task(coroutine)
     # trigger task in event loop
-    return loop.run_until_complete(task)
+    result = loop.run_until_complete(task)
+    loop.stop()
+    loop.close()
+    return result

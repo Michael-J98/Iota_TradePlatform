@@ -1,9 +1,10 @@
-import os
+#import os
 import base64
 import threading
 import numpy as np
 import time
-os.chdir('.\Iota_TradePlatform')
+import sys
+sys.path.append('./')
 from Basic import Node, Public_Com
 from iota import ProposedTransaction, Address, TryteString
 
@@ -40,12 +41,14 @@ class Iot(Node.Node):
         """
         consumption = None
         if self.consumption_curve is None:
-            consumption = np.random.randint(10, 3000)
+            consumption = np.random.randint(100, 3000)  # W
 
         if callable(self.consumption_curve):
             consumption = self.consumption_curve(args)
 
         self.surplus_pow -= self.time_interval * consumption / 3600
+        if self.surplus_pow < 0:
+            self.surplus_pow = 0.0
 
         if consumption is None:
             print('check the type of self.consumption_curve, it is either\
@@ -73,57 +76,49 @@ def report_surplus_pow(iot, *args):
     print('开始上传电力剩余')
     while True:
         iot.pub_client.publish('I-C', str({'type': 'surplus', 'amount': iot.surplus_pow}))
+        iot.pow_consume()
         time.sleep(iot.time_interval/5)
-
-
-def producer_handler(message):
-    global iot
-    assert isinstance(message['channel'], bytes)
-    if message['channel'].decode() == 'P-I':
-        if eval(message['data'].decode())['type'] == 'psw_request':
-            print('收到密码生成请求')
-
-            address = eval(message['data'].decode())['address']
-            assert isinstance(address, Address), f'Type:{type(address)}'
-            print('买家Iot地址接收成功:{}'.format(address))
-
-            quantity = eval(message['data'].decode())['quantity']
-            print(f'购买电量确认{quantity}')
-
-            pow_psw = iot.pow_psw_generation(quantity)
-            print('电网连接密码生成')
-
-            transactions = [
-                ProposedTransaction(
-                    address=address,
-                    value=0,
-                    message=TryteString.from_bytes(pow_psw),
-                )
-            ]
-
-            Node.decorator(iot.send(transactions))
-            print('传送电网连接密码成功')
 
 
 def consumer_handler(message):
     global iot
+    wait_time = 60
     assert isinstance(message['channel'], bytes)
     if message['channel'].decode() == 'C-I':
         if eval(message['data'].decode())['type'] == 'add_request':
             print('收到地址生成请求')
-            iot.consumer_address = Node.decorator(iot.address_gen())[0]
-            print(f'地址生成成功{iot.consumer_address}')
+            try:
+                iot.consumer_address = Node.decorator(iot.address_gen())[0]
+            except:
+                print('重新生成协程对象...')
+                iot.consumer_address = Node.decorator(iot.address_gen())[0]
 
-            iot.pub_client.publish('I-C', str({'type': 'add_rtn', 'address': iot.consumer_address}))
-            print('传送用户Iot地址完成')
-            print('等待返回电网连接密码...')
-            data = Node.decorator(iot.fetch(iot.consumer_address))
-            if data != []:
-                print(f'收到电网连接密码：{data}')
-                pow = base64.b64decode(data[0]).decode()
-                print(f'充值电力：{pow}')
-                iot.surplus_pow += eval(pow)
-                print(f'目前剩余电力：{iot.surplus_pow}')
+            print(f'地址生成成功{iot.consumer_address}')
+            print('向用户发送Iot地址...')
+            while True:
+                if wait_time > 0:
+                    num = iot.pub_client.publish('I-C', str({'type': 'add_rtn', 'address': iot.consumer_address}))
+                    if num == 0:
+                        wait_time -= 5
+                        print('.')
+                        time.sleep(5)
+                    else:
+                        print(f'传送用户Iot地址完成: {iot.consumer_address}')
+                        print('等待返回电网连接密码...')
+                        try:
+                            data = Node.decorator(iot.fetch(iot.consumer_address))
+                        except:
+                            print('重新生成协程对象...')
+                            data = Node.decorator(iot.fetch(iot.consumer_address))
+                        if data != []:
+                            print(f'收到电网连接密码：{data}')
+                            pow = base64.b64decode(data[0]).decode()
+                            print(f'充值电力：{pow}')
+                            iot.surplus_pow += eval(pow)
+                            print(f'目前剩余电力：{iot.surplus_pow}')
+                            break
+            if wait_time <= 0:
+                print('用户接收地址失败')
 
             
 

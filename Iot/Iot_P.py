@@ -1,9 +1,10 @@
-import os
+#import os
 import base64
 import threading
 import numpy as np
 import time
-os.chdir('.\Iota_TradePlatform')
+import sys
+sys.path.append('./')
 from Basic import Node, Public_Com
 from iota import ProposedTransaction, Address, TryteString
 
@@ -101,29 +102,12 @@ def producer_handler(message):
                 )
             ]
 
-            Node.decorator(iot.send(transactions))
+            try:
+                Node.decorator(iot.send(transactions))
+            except:
+                print('重新生成协程对象...')
+                Node.decorator(iot.send(transactions))
             print('传送电网连接密码成功')
-
-
-def consumer_handler(message):
-    global iot
-    assert isinstance(message['channel'], bytes)
-    if message['channel'].decode() == 'C-I':
-        if eval(message['data'].decode())['type'] == 'add_request':
-            print('收到地址生成请求')
-            iot.consumer_address = Node.decorator(iot.address_gen())[0]
-            print(f'地址生成成功{iot.consumer_address}')
-
-            iot.pub_client.publish('I-C', str({'type': 'add_rtn', 'address': iot.consumer_address}))
-            print('传送用户Iot地址完成')
-            print('等待返回电网连接密码...')
-            data = Node.decorator(iot.fetch(iot.consumer_address))
-            if data != []:
-                print(f'收到电网连接密码：{data}')
-                pow = base64.b64decode(data[0]).decode()
-                print(f'充值电力：{pow}')
-                iot.surplus_pow += eval(pow)
-                print(f'目前剩余电力：{iot.surplus_pow}')
 
             
 
